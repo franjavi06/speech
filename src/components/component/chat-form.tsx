@@ -1,10 +1,13 @@
 "use client";
 import React from "react";
 import { Button } from "../ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { CircleStop } from "lucide-react";
 
 const ChatForm = () => {
+  const recognitionRef = useRef<SpeechRecognition>();
+  const [isActive, setIsActive] = useState<boolean>(false);
   const [text, setText] = useState<string>("");
   const [voices, setVoices] = useState<Array<SpeechSynthesisVoice>>();
 
@@ -23,19 +26,32 @@ const ChatForm = () => {
   }, []);
 
   const handleSTT = () => {
+    if (isActive) {
+      recognitionRef.current?.stop();
+      setIsActive(false);
+      return;
+    }
+    handleTTS(" ");
     console.log("STT start");
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = "es-DO";
-    recognition.onresult = async function (event) {
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.lang = "es-DO";
+
+    recognitionRef.current.onstart = () => {
+      setIsActive(true);
+    };
+    recognitionRef.current.onend = () => {
+      setIsActive(false);
+    };
+    recognitionRef.current.onresult = async function (event) {
       const transcript = event.results[0][0].transcript;
       setText(transcript);
       console.log(transcript);
       console.log("STT finish");
       handleTTS(transcript);
     };
-    recognition.start();
+    recognitionRef.current.start();
   };
 
   const availableVoices = voices?.filter(({ lang }) => lang.includes("es"));
@@ -65,7 +81,7 @@ const ChatForm = () => {
   return (
     <div className="bg-background px-6 py-4 flex items-center gap-4">
       <Button variant="ghost" size="icon" onClick={handleSTT}>
-        <MicIcon className="w-5 h-5" />
+        {isActive ? <CircleStop /> : <MicIcon className="w-5 h-5" />}
         <span className="sr-only">Speech-to-text</span>
       </Button>
       <Textarea
